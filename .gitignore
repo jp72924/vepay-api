@@ -1,7 +1,12 @@
-# Python
+﻿# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.test-tmp/
+.vepay-api-tmp/
+.vepayocr-tmp/
+*.egg-info/
+pytest-cache-files-*/
 .mypy_cache/
 .ruff_cache/
 .venv/
@@ -12,7 +17,7 @@ receipt_ocr_*/
 receipt_ocr_*.png
 bdv_amount_*.png
 sample_receipts.*
-vepayocr_private_test.*
+vepay_api_private_test.*
 *.tmp
 
 # Private payment screenshots and exports
@@ -39,3 +44,4 @@ private/
 Thumbs.db
 .idea/
 .vscode/
+

@@ -1,5 +1,8 @@
-VEPay OCR
-Copyright 2026 VEPay OCR contributors
+VEPay API
+Copyright 2026 VEPay API contributors
 
-VEPay OCR is a local OCR utility for extracting structured data from
+VEPay API is an HTTP API and CLI for extracting structured data from
 Venezuelan mobile payment receipt screenshots.
+
+This project is derived from VEPay OCR and retains its Apache-2.0 licensing
+terms and attribution.

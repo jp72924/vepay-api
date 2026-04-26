@@ -1,5 +1,5 @@
 {
-  "schema_version": "ve_bank_payment_receipt_v1",
+  "schema_version": "vepay_api_receipt_v1",
   "source": {
     "file_name": "redacted-receipt.jpeg",
     "file_path": "examples/redacted-receipt.jpeg",

@@ -1,7 +1,8 @@
-# VEPay OCR
+﻿# VEPay API
 
-VEPay OCR is a local command-line tool that extracts structured payment data
-from Venezuelan mobile banking receipt screenshots.
+VEPay API extracts structured payment data from Venezuelan mobile banking
+receipt screenshots. It can run as a local command-line tool or as a small HTTP
+API for integrations over the network.
 
 It currently supports receipt layouts from Bancamiga, Banesco, Banco de
 Venezuela (BDV), Mercantil Tpago and BBVA Provincial Dinero Rapido. The output
@@ -19,6 +20,9 @@ another system for transaction confirmation.
 - Validation metadata for manual review when a required field is missing.
 - Partial extraction for receipt layouts that do not expose all confirmation
   fields.
+- FastAPI HTTP service with multipart and JSON/base64 inputs.
+- In-memory async jobs for larger batches.
+- Docker image recipe with Tesseract, Spanish and English OCR data.
 
 ## Requirements
 
@@ -26,22 +30,30 @@ another system for transaction confirmation.
 - Tesseract OCR installed and available in `PATH`.
 - Tesseract language data for `spa` and `eng`.
 
-On Windows, VEPay OCR can use PowerShell/.NET for one targeted BDV crop because
-that app often renders the amount as white text on a grey bar.
+VEPay API uses Pillow for a targeted BDV crop because that app often renders
+the amount as white text on a grey bar. On Windows, the legacy PowerShell/.NET
+crop remains available as a fallback.
 
 ## Installation
 
 Run directly with Python:
 
 ```powershell
-python vepayocr.py --version
+python vepay_api_core.py --version
 ```
 
-Or install the local project to expose the `vepayocr` command:
+Or install the local project to expose the `vepay-api` API server and
+`vepay-api-cli` CLI commands:
 
 ```powershell
 python -m pip install .
-vepayocr --version
+vepay-api-cli --version
+```
+
+Install development dependencies for tests:
+
+```powershell
+python -m pip install ".[dev]"
 ```
 
 ## Usage
@@ -49,44 +61,201 @@ vepayocr --version
 Process one image:
 
 ```powershell
-python vepayocr.py ".\capturas\bancamiga.jpeg"
+python vepay_api_core.py ".\capturas\bancamiga.jpeg"
 ```
 
 Process a folder and write JSON:
 
 ```powershell
-python vepayocr.py ".\capturas" --format json --output pagos.json
+python vepay_api_core.py ".\capturas" --format json --output pagos.json
 ```
 
 Write JSONL for incremental ingestion:
 
 ```powershell
-python vepayocr.py ".\capturas" --format jsonl --output pagos.jsonl
+python vepay_api_core.py ".\capturas" --format jsonl --output pagos.jsonl
 ```
 
 Write CSV for review:
 
 ```powershell
-python vepayocr.py ".\capturas" --format csv --output pagos.csv --no-raw-text
+python vepay_api_core.py ".\capturas" --format csv --output pagos.csv --no-raw-text
 ```
 
 Use a custom Tesseract executable:
 
 ```powershell
-python vepayocr.py ".\capturas" --tesseract "C:\Program Files\Tesseract-OCR\tesseract.exe"
+python vepay_api_core.py ".\capturas" --tesseract "C:\Program Files\Tesseract-OCR\tesseract.exe"
+```
+
+Disable auxiliary OCR crops:
+
+```powershell
+python vepay_api_core.py ".\capturas" --no-crops
 ```
 
 Show the installed tool version:
 
 ```powershell
-python vepayocr.py --version
+python vepay_api_core.py --version
+```
+
+## HTTP API
+
+Start the API locally:
+
+```powershell
+python -m uvicorn vepay_api:app --host 127.0.0.1 --port 8080
+```
+
+Or start it in the background with PID/log files:
+
+```powershell
+python scripts/start_api.py
+python scripts/stop_api.py
+```
+
+Run a finite smoke test that starts the API, checks it and stops it:
+
+```powershell
+python scripts/smoke_api.py
+```
+
+If the `vepay-api` console script directory is on your `PATH`, this also
+works:
+
+```powershell
+vepay-api
+```
+
+Health and capabilities:
+
+```powershell
+curl http://localhost:8080/
+curl http://localhost:8080/healthz
+curl http://localhost:8080/v1/capabilities
+```
+
+For a browser UI, open `http://localhost:8080/docs`.
+
+Parse one or more images with multipart form data:
+
+```powershell
+curl -X POST http://localhost:8080/v1/receipts/parse `
+  -F "files=@.\capturas\bdv.jpeg" `
+  -F "include_raw_text=false" `
+  -F "enable_crops=true"
+```
+
+Python client:
+
+```python
+import requests
+
+with open("capturas/bdv.jpeg", "rb") as handle:
+    response = requests.post(
+        "http://localhost:8080/v1/receipts/parse",
+        files={"files": ("bdv.jpeg", handle, "image/jpeg")},
+        data={"include_raw_text": "false", "enable_crops": "true"},
+        timeout=60,
+    )
+response.raise_for_status()
+print(response.json())
+```
+
+JavaScript client:
+
+```javascript
+const form = new FormData();
+form.append("files", fileInput.files[0], "bdv.jpeg");
+form.append("include_raw_text", "false");
+form.append("enable_crops", "true");
+
+const response = await fetch("http://localhost:8080/v1/receipts/parse", {
+  method: "POST",
+  body: form,
+});
+console.log(await response.json());
+```
+
+Parse base64 JSON when multipart is not convenient:
+
+```json
+{
+  "images": [
+    {
+      "filename": "bdv.jpeg",
+      "content_type": "image/jpeg",
+      "image_base64": "<base64>"
+    }
+  ],
+  "lang": "spa+eng",
+  "include_raw_text": false,
+  "enable_crops": true
+}
+```
+
+```powershell
+curl -X POST http://localhost:8080/v1/receipts/parse-json `
+  -H "Content-Type: application/json" `
+  --data-binary "@request.json"
+```
+
+Create an asynchronous in-memory job with the same JSON shape:
+
+```powershell
+curl -X POST http://localhost:8080/v1/jobs `
+  -H "Content-Type: application/json" `
+  --data-binary "@request.json"
+
+curl http://localhost:8080/v1/jobs/<job_id>
+```
+
+Jobs are an MVP single-instance queue stored in process memory. For multiple API
+instances or durable processing, replace the in-memory job store with Redis/RQ
+or another external queue.
+
+The API response includes:
+
+- `request_id`
+- `schema_version`
+- `receipts`
+- `summary`
+- `errors`
+
+For privacy, API responses replace local server paths with
+`upload://{request_id}/{filename}` and omit OCR `raw_text` unless
+`include_raw_text=true`.
+
+Optional environment variables:
+
+- `VEPAY_API_TESSERACT`: custom Tesseract executable path.
+- `VEPAY_API_MAX_FILES`: max synchronous files, default `10`.
+- `VEPAY_API_MAX_JOB_FILES`: max job files, default `100`.
+- `VEPAY_API_MAX_FILE_SIZE_BYTES`: per-image limit, default `10485760`.
+- `VEPAY_API_MAX_CONCURRENCY`: concurrent Tesseract runs, default `min(4, cpu_count)`.
+- `VEPAY_API_JOB_TTL_SECONDS`: in-memory job lifetime, default `86400`.
+- `VEPAY_API_REQUIRE_API_KEY`: set `true` to require `X-API-Key`.
+- `VEPAY_API_KEY`: expected API key when auth is enabled.
+
+Run with Docker:
+
+```powershell
+docker build -t vepay-api .
+docker run --rm -p 8080:8080 vepay-api
+```
+
+Or with Compose:
+
+```powershell
+docker compose up --build
 ```
 
 ## Output Model
 
 The JSON output follows `payment_receipt_schema.json`.
 
-- `schema_version`: currently `ve_bank_payment_receipt_v1`.
+- `schema_version`: currently `vepay_api_receipt_v1`.
 - `source`: file name, path and SHA-256 hash of the processed image.
 - `payment`: detected bank/app, status, reference, amount, date/time and concept.
 - `origin`: source phone, account and bank when present in the screenshot.
@@ -107,7 +276,7 @@ Amounts are normalized to decimal strings with a dot separator, for example
 `2.500,00` becomes `2500.00`. Currency is currently fixed as `VES`.
 
 Some BBVA Provincial screenshots do not show a payment reference or destination
-bank. VEPay OCR still extracts the visible fields from those layouts, but marks
+bank. VEPay API still extracts the visible fields from those layouts, but marks
 the receipt as incomplete and adds a warning for manual review.
 
 ## Privacy
@@ -122,3 +291,7 @@ output model.
 ## License
 
 Apache License 2.0. See `LICENSE`.
+
+VEPay API is derived from the original VEPay OCR utility and keeps attribution
+in `NOTICE`.
+

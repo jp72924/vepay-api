@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://vepayocr.local/schemas/ve_bank_payment_receipt_v1.json",
-  "title": "VEPay OCR Payment Receipt",
+  "$id": "https://vepay-api.local/schemas/vepay_api_receipt_v1.json",
+  "title": "VEPay API Payment Receipt",
   "type": "object",
   "required": ["schema_version", "source", "payment", "origin", "recipient", "ocr", "validation"],
   "properties": {
     "schema_version": {
-      "const": "ve_bank_payment_receipt_v1"
+      "const": "vepay_api_receipt_v1"
     },
     "source": {
       "type": "object",
