@@ -1,0 +1,44 @@
+{
+  "schema_version": "ve_bank_payment_receipt_v1",
+  "source": {
+    "file_name": "redacted-receipt.jpeg",
+    "file_path": "examples/redacted-receipt.jpeg",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "payment": {
+    "bank_app": "bdv",
+    "status": "success",
+    "reference": "000000000000",
+    "amount": {
+      "value": "2500.00",
+      "currency": "VES",
+      "raw": "2.500,00"
+    },
+    "date_time": {
+      "raw": "01/01/2026 12:00 PM",
+      "iso": "2026-01-01T12:00:00"
+    },
+    "concept": "PAGO"
+  },
+  "origin": {
+    "phone": "04*********",
+    "account": "0102****0000",
+    "bank": null
+  },
+  "recipient": {
+    "phone": "04120000000",
+    "document_id": "V-00000000",
+    "bank": "0102 - BANCO DE VENEZUELA"
+  },
+  "ocr": {
+    "engine": "tesseract",
+    "language": "spa+eng",
+    "passes": ["full_psm_6", "bdv_amount_crop"]
+  },
+  "transaction_key": "0000000000000000000000000000000000000000000000000000000000000000",
+  "validation": {
+    "is_complete": true,
+    "missing_fields": [],
+    "warnings": []
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vepayocr.local/schemas/ve_bank_payment_receipt_v1.json",
+  "title": "VEPay OCR Payment Receipt",
+  "type": "object",
+  "required": ["schema_version", "source", "payment", "origin", "recipient", "ocr", "validation"],
+  "properties": {
+    "schema_version": {
+      "const": "ve_bank_payment_receipt_v1"
+    },
+    "source": {
+      "type": "object",
+      "required": ["file_name", "file_path", "sha256"],
+      "properties": {
+        "file_name": { "type": "string" },
+        "file_path": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "payment": {
+      "type": "object",
+      "required": ["bank_app", "status", "reference", "amount", "date_time", "concept"],
+      "properties": {
+        "bank_app": {
+          "type": ["string", "null"],
+          "enum": ["bancamiga", "banesco", "bdv", "mercantil", null]
+        },
+        "status": {
+          "type": ["string", "null"],
+          "enum": ["success", "failed", "pending", null]
+        },
+        "reference": {
+          "type": ["string", "null"],
+          "description": "Numero de referencia/operacion extraido del recibo."
+        },
+        "amount": {
+          "type": "object",
+          "required": ["value", "currency", "raw"],
+          "properties": {
+            "value": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9]+(\\.[0-9]{1,2})?$",
+              "description": "Monto normalizado en formato decimal con punto."
+            },
+            "currency": { "const": "VES" },
+            "raw": {
+              "type": ["string", "null"],
+              "description": "Monto tal como fue leido por OCR."
+            }
+          },
+          "additionalProperties": false
+        },
+        "date_time": {
+          "type": "object",
+          "required": ["raw", "iso"],
+          "properties": {
+            "raw": { "type": ["string", "null"] },
+            "iso": {
+              "type": ["string", "null"],
+              "description": "Fecha ISO local, con hora cuando el recibo la contiene."
+            }
+          },
+          "additionalProperties": false
+        },
+        "concept": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "origin": {
+      "type": "object",
+      "required": ["phone", "account", "bank"],
+      "properties": {
+        "phone": { "type": ["string", "null"] },
+        "account": { "type": ["string", "null"] },
+        "bank": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "recipient": {
+      "type": "object",
+      "required": ["phone", "document_id", "bank"],
+      "properties": {
+        "phone": { "type": ["string", "null"] },
+        "document_id": { "type": ["string", "null"] },
+        "bank": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "ocr": {
+      "type": "object",
+      "required": ["engine", "language", "passes"],
+      "properties": {
+        "engine": { "const": "tesseract" },
+        "language": { "type": "string" },
+        "passes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "raw_text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "transaction_key": {
+      "type": ["string", "null"],
+      "description": "Hash deterministico para detectar duplicados."
+    },
+    "validation": {
+      "type": "object",
+      "required": ["is_complete", "missing_fields", "warnings"],
+      "properties": {
+        "is_complete": { "type": "boolean" },
+        "missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

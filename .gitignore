@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Local OCR artifacts
+receipt_ocr_*/
+receipt_ocr_*.png
+bdv_amount_*.png
+sample_receipts.*
+vepayocr_private_test.*
+*.tmp
+
+# Private payment screenshots and exports
+capturas/
+screenshots/
+private/
+*.jpeg
+*.jpg
+*.png
+*.webp
+*.tif
+*.tiff
+*.bmp
+*.csv
+*.jsonl
+
+# Keep public schema and redacted example tracked.
+!payment_receipt_schema.json
+!examples/
+!examples/redacted_receipt.json
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
