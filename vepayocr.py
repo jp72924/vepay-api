@@ -124,6 +124,10 @@ def detect_bank(text: str) -> str | None:
         return "bdv"
     if "tpago" in ntext or "mercantil" in ntext:
         return "mercantil"
+    if "bbva provincial" in ntext or (
+        "dinero rapido" in ntext and "provincial" in ntext
+    ):
+        return "provincial"
     return None
 
 
@@ -133,6 +137,7 @@ def detect_status(text: str) -> str | None:
         "transaccion exitosa",
         "operacion exitosa",
         "fue exitoso",
+        "el dinero fue enviado",
         "listo",
     )
     if any(token in ntext for token in success_tokens):
@@ -177,6 +182,41 @@ def value_after_label(lines: list[str], aliases: list[str]) -> str | None:
             candidate = scrub_candidate(candidate)
             if candidate:
                 return candidate
+    return None
+
+
+def value_after_label_flexible(lines: list[str], aliases: list[str]) -> str | None:
+    normalized_aliases = [norm(alias) for alias in aliases]
+    normalized_lines = [norm(line) for line in lines]
+    for idx, normalized_line in enumerate(normalized_lines):
+        for alias in normalized_aliases:
+            if not (
+                normalized_line == alias
+                or normalized_line.startswith(alias + ":")
+                or normalized_line.startswith(alias + " ")
+            ):
+                continue
+
+            raw_line = lines[idx]
+            candidates: list[str] = []
+            if ":" in raw_line:
+                candidates.append(raw_line.split(":", 1)[1].strip())
+            elif len(raw_line) > len(alias):
+                candidates.append(raw_line[len(alias) :].strip())
+
+            for offset in range(1, 4):
+                next_idx = idx + offset
+                if next_idx >= len(lines):
+                    break
+                next_normalized = normalized_lines[next_idx]
+                if is_label_header(next_normalized):
+                    break
+                candidates.append(lines[next_idx])
+
+            for candidate in candidates:
+                candidate = scrub_candidate(candidate)
+                if candidate:
+                    return candidate
     return None
 
 
@@ -227,6 +267,7 @@ LABEL_ALIASES: dict[str, list[str]] = {
         "numero de referencia",
         "nro. de referencia",
         "nro de referencia",
+        "referencia",
         "operacion",
     ],
     "amount": [
@@ -250,6 +291,7 @@ LABEL_ALIASES: dict[str, list[str]] = {
         "telf beneficiario",
         "numero celular de destino",
         "celular de destino",
+        "numero celular",
         "destino",
     ],
     "recipient_id": [
@@ -585,6 +627,25 @@ def build_receipt(
         recipient_phone = normalize_phone(value_after_label(lines, ["beneficiario"]))
         if origin_account:
             origin_account = origin_account.strip()
+    if bank_app == "provincial":
+        reference = extract_reference(
+            value_after_label_flexible(lines, ["referencia"])
+        ) or reference
+        provincial_date = parse_date_time(value_after_label_flexible(lines, ["fecha"]))
+        if provincial_date["raw"]:
+            date_time = provincial_date
+        recipient_phone = normalize_phone(
+            value_after_label_flexible(lines, ["numero celular"])
+        ) or recipient_phone
+        recipient_id = normalize_document_id(
+            value_after_label_flexible(lines, ["identificacion"])
+        ) or recipient_id
+        recipient_bank = normalize_bank(
+            value_after_label_flexible(lines, ["banco"])
+        ) or recipient_bank
+        concept = normalize_concept(
+            value_after_label_flexible(lines, ["concepto"])
+        ) or concept
 
     receipt: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
@@ -640,6 +701,12 @@ def build_receipt(
     if not extra_passes and bank_app == "bdv" and not amount_value:
         receipt["validation"]["warnings"].append(
             "No se pudo leer el monto BDV; intenta instalar Pillow/OpenCV o revisar manualmente."
+        )
+    if bank_app == "provincial" and (
+        "payment.reference" in missing or "recipient.bank" in missing
+    ):
+        receipt["validation"]["warnings"].append(
+            "Provincial alternate layout does not expose all confirmation fields; manual review required."
         )
 
     return receipt

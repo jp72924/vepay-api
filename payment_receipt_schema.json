@@ -24,7 +24,7 @@
       "properties": {
         "bank_app": {
           "type": ["string", "null"],
-          "enum": ["bancamiga", "banesco", "bdv", "mercantil", null]
+          "enum": ["bancamiga", "banesco", "bdv", "mercantil", "provincial", null]
         },
         "status": {
           "type": ["string", "null"],

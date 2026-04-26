@@ -4,9 +4,9 @@ VEPay OCR is a local command-line tool that extracts structured payment data
 from Venezuelan mobile banking receipt screenshots.
 
 It currently supports receipt layouts from Bancamiga, Banesco, Banco de
-Venezuela (BDV) and Mercantil Tpago. The output is normalized as JSON, JSONL or
-CSV so it can be stored, reviewed, or sent to another system for transaction
-confirmation.
+Venezuela (BDV), Mercantil Tpago and BBVA Provincial Dinero Rapido. The output
+is normalized as JSON, JSONL or CSV so it can be stored, reviewed, or sent to
+another system for transaction confirmation.
 
 ## Features
 
@@ -17,6 +17,8 @@ confirmation.
 - CSV and JSONL exports for spreadsheets, queues and ingestion pipelines.
 - Deterministic `transaction_key` for duplicate detection.
 - Validation metadata for manual review when a required field is missing.
+- Partial extraction for receipt layouts that do not expose all confirmation
+  fields.
 
 ## Requirements
 
@@ -103,6 +105,10 @@ Required fields for a complete receipt:
 
 Amounts are normalized to decimal strings with a dot separator, for example
 `2.500,00` becomes `2500.00`. Currency is currently fixed as `VES`.
+
+Some BBVA Provincial screenshots do not show a payment reference or destination
+bank. VEPay OCR still extracts the visible fields from those layouts, but marks
+the receipt as incomplete and adds a warning for manual review.
 
 ## Privacy
 
