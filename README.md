@@ -25,6 +25,29 @@ another system for transaction confirmation.
 - In-memory async jobs for larger batches.
 - Docker image recipe with Tesseract, Spanish and English OCR data.
 
+## Recent Changes
+
+This release improves parser accuracy and adds a browser-based audit workflow
+without changing the API-first default behavior.
+
+- Parser accuracy: receipt classification now prioritizes app and emitter-bank
+  context over destination-bank text, so BDV, Banesco, Bancamiga, Mercantil
+  Tpago and BBVA Provincial receipts are less likely to be confused by
+  counterparty banks.
+- Amount extraction: BDV amount crops are triggered from strong BDV receipt
+  signals, and amounts with comma or dot decimals followed by `Bs` are
+  normalized to the same JSON shape.
+- Integrated audit UI: the static client can be served from `/ui` when
+  `VEPAY_API_ENABLE_UI=true`, with optional `/` to `/ui/` redirection via
+  `VEPAY_API_UI_DEFAULT_ROUTE=true`.
+- Local proxy client: `scripts/start_client.py` still serves the same UI on
+  `127.0.0.1:8765` and proxies `/api/*` to Fly.io or a custom
+  `VEPAY_API_BASE_URL` for CORS-free manual audits.
+- Deployment and validation: Docker now includes the `client/` assets, Compose
+  keeps the UI disabled by default, and tests cover contextual bank detection,
+  BDV amount fallback, Banesco destination phone parsing, UI routing, asset
+  path safety and local proxy behavior.
+
 ## Requirements
 
 - Python 3.10 or newer.
