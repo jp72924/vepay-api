@@ -156,7 +156,7 @@ Health and capabilities:
 
 ```powershell
 curl http://localhost:8080/
-curl http://localhost:8080/healthz
+curl http://localhost:8080/health
 curl http://localhost:8080/v1/capabilities
 ```
 
@@ -364,6 +364,18 @@ Or with Compose:
 ```powershell
 docker compose up --build
 ```
+
+## Google Cloud Run
+
+Cloud Run can deploy this repository directly from source. Because the repo
+contains a Dockerfile, Google Cloud builds the same image used locally, including
+Tesseract and the Spanish/English OCR data.
+
+The deployment helpers live in `deploy/google-cloud-run.md` and
+`scripts/deploy_cloud_run.*`. The default production shape is Cloud Run in
+`northamerica-south1`, 1 vCPU, 1 GiB RAM, scale-to-zero, and app-level
+`X-API-Key` authentication backed by Secret Manager. The integrated audit UI is
+enabled at `/ui` without changing the API metadata returned from `/`.
 
 ## Output Model
 
