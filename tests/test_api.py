@@ -91,6 +91,85 @@ def test_root_uses_rebranded_identity():
     assert response.json()["app"] == "VEPay API"
 
 
+def test_root_can_redirect_to_ui_when_enabled(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "true")
+    monkeypatch.setenv("VEPAY_API_UI_DEFAULT_ROUTE", "true")
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 307
+    assert response.headers["location"] == "/ui/"
+
+
+def test_root_does_not_redirect_to_ui_when_ui_is_not_enabled(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "false")
+    monkeypatch.setenv("VEPAY_API_UI_DEFAULT_ROUTE", "true")
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert response.json()["app"] == "VEPay API"
+
+
+def test_ui_is_disabled_by_default(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "false")
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/ui", follow_redirects=False)
+    slash_response = client.get("/ui/")
+
+    assert response.status_code == 404
+    assert slash_response.status_code == 404
+
+
+def test_ui_serves_index_and_integrated_config_when_enabled(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "true")
+    monkeypatch.setattr(vepay_api, "REQUIRE_API_KEY", False)
+    client = TestClient(vepay_api.app)
+
+    redirect = client.get("/ui", follow_redirects=False)
+    index = client.get("/ui/")
+    config = client.get("/ui/config.js")
+    styles = client.get("/ui/styles.css")
+    script = client.get("/ui/app.js")
+
+    assert redirect.status_code == 307
+    assert redirect.headers["location"] == "/ui/"
+    assert index.status_code == 200
+    assert "Cliente de auditoria" in index.text
+    assert config.status_code == 200
+    assert '"apiPrefix": ""' in config.text
+    assert '"mode": "integrated"' in config.text
+    assert '"requireApiKey": false' in config.text
+    assert styles.status_code == 200
+    assert script.status_code == 200
+    assert client.get("/styles.css").status_code == 404
+    assert client.get("/app.js").status_code == 404
+    assert client.get("/config.js").status_code == 404
+
+
+def test_ui_config_reflects_required_api_key(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "true")
+    monkeypatch.setattr(vepay_api, "REQUIRE_API_KEY", True)
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/ui/config.js")
+
+    assert response.status_code == 200
+    assert '"requireApiKey": true' in response.text
+
+
+def test_ui_rejects_path_traversal(monkeypatch):
+    monkeypatch.setenv("VEPAY_API_ENABLE_UI", "true")
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/ui/%2E%2E/README.md")
+
+    assert response.status_code == 404
+
+
 def test_multipart_parse_scrubs_server_paths_and_omits_raw_text(monkeypatch):
     install_fake_ocr(monkeypatch)
     client = TestClient(vepay_api.app)

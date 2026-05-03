@@ -120,14 +120,53 @@ def source_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def detect_bank(text: str) -> str | None:
+BDV_RECEIPT_TOKENS = (
+    "pagomovilbdv",
+    "pago movilbdv",
+    "pagomovil bdv",
+    "pago movil bdv",
+    "bdv personas",
+)
+
+MERCANTIL_RECEIPT_TOKENS = (
+    "tu tpago fue exitoso",
+    "enviar tpago",
+    "tpago",
+    "mercantil",
+)
+
+PROVINCIAL_RECEIPT_TOKENS = (
+    "dinero rapido",
+    "bbva provincial",
+)
+
+COUNTERPARTY_BANK_LABELS = (
+    "banco receptor",
+    "banco destino",
+    "banco",
+)
+
+
+def has_bdv_receipt_signal(text: str) -> bool:
     ntext = norm(text)
-    if "bancamiga" in ntext:
-        return "bancamiga"
+    return any(token in ntext for token in BDV_RECEIPT_TOKENS)
+
+
+def has_any_token(text: str, tokens: tuple[str, ...]) -> bool:
+    ntext = norm(text)
+    return any(token in ntext for token in tokens)
+
+
+def detect_bank_from_name(value: str | None) -> str | None:
+    if not value:
+        return None
+    ntext = norm(value)
+    if has_bdv_receipt_signal(value) or "banco de venezuela" in ntext:
+        return "bdv"
     if "banesco" in ntext:
         return "banesco"
-    if "pagomovilbdv" in ntext or "bdv personas" in ntext:
-        return "bdv"
+    if "bancamiga" in ntext:
+        return "bancamiga"
     if "tpago" in ntext or "mercantil" in ntext:
         return "mercantil"
     if "bbva provincial" in ntext or (
@@ -135,6 +174,52 @@ def detect_bank(text: str) -> str | None:
     ):
         return "provincial"
     return None
+
+
+def strip_counterparty_bank_sections(lines: list[str]) -> list[str]:
+    """Remove destination-bank labels/values before receipt-level bank detection."""
+
+    normalized_labels = [norm(label) for label in COUNTERPARTY_BANK_LABELS]
+    normalized_lines = [norm(line) for line in lines]
+    kept: list[str] = []
+    index = 0
+    while index < len(lines):
+        normalized_line = normalized_lines[index]
+        if any(
+            line_matches_label(normalized_line, label)
+            for label in normalized_labels
+        ):
+            index += 1
+            while index < len(lines):
+                next_normalized = normalized_lines[index]
+                if is_label_header(next_normalized):
+                    break
+                index += 1
+            continue
+        kept.append(lines[index])
+        index += 1
+    return kept
+
+
+def detect_bank_from_receipt_text(text: str) -> str | None:
+    lines = clean_lines(text)
+    app_text = "\n".join(strip_counterparty_bank_sections(lines))
+    if has_bdv_receipt_signal(app_text):
+        return "bdv"
+    if has_any_token(app_text, MERCANTIL_RECEIPT_TOKENS):
+        return "mercantil"
+    if has_any_token(app_text, PROVINCIAL_RECEIPT_TOKENS):
+        return "provincial"
+    return detect_bank_from_name(app_text)
+
+
+def detect_bank(text: str) -> str | None:
+    lines = clean_lines(text)
+    origin_bank = value_after_label(lines, ["banco emisor"])
+    bank_from_origin = detect_bank_from_name(origin_bank)
+    if bank_from_origin:
+        return bank_from_origin
+    return detect_bank_from_receipt_text(text)
 
 
 def detect_status(text: str) -> str | None:
@@ -234,6 +319,7 @@ GENERIC_EXACT_LABELS = {
     "fecha",
     "identificacion",
     "monto",
+    "numero celular",
     "operacion",
     "origen",
 }
@@ -327,7 +413,11 @@ ALL_LABELS_NORMALIZED = {
 
 
 MONEY_RE = re.compile(
-    r"(?<!\d)(?:Bs\.?\s*)?([0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}|[0-9]+,[0-9]{2})(?:\s*Bs\.?)?(?!\d)",
+    r"(?<!\d)(?:Bs\.?\s*)?("
+    r"[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}"
+    r"|[0-9]+,[0-9]{2}"
+    r"|[0-9]+\.[0-9]{2}"
+    r")(?:\s*Bs\.?)?(?!\d)",
     re.IGNORECASE,
 )
 
@@ -346,7 +436,10 @@ def extract_amount_from_value(value: str | None) -> tuple[str | None, str | None
     if not match:
         return None, None
     raw = match.group(1)
-    normalized = raw.replace(".", "").replace(",", ".")
+    if "," in raw:
+        normalized = raw.replace(".", "").replace(",", ".")
+    else:
+        normalized = raw
     try:
         decimal_value = Decimal(normalized)
     except InvalidOperation:
@@ -578,7 +671,9 @@ def targeted_ocr_passes(
     passes: list[dict[str, str]] = []
 
     amount_raw, amount_value = extract_amount(clean_lines(current_text), current_text)
-    should_try_bdv_amount = bank_app == "bdv" and not amount_value
+    should_try_bdv_amount = (
+        bank_app == "bdv" or has_bdv_receipt_signal(current_text)
+    ) and not amount_value
     if not should_try_bdv_amount or not enable_crops:
         return passes
 
@@ -668,6 +763,7 @@ def parse_receipt_image(image_path: Path, options: ReceiptOptions) -> dict[str, 
     recipient_id = normalize_document_id(value_after_label(lines, LABEL_ALIASES["recipient_id"]))
     origin_bank = normalize_bank(value_after_label(lines, LABEL_ALIASES["origin_bank"]))
     recipient_bank = normalize_bank(value_after_label(lines, LABEL_ALIASES["recipient_bank"]))
+    bank_app = detect_bank_from_name(origin_bank) or bank_app
     concept = normalize_concept(value_after_label(lines, LABEL_ALIASES["concept"]))
 
     # Bank-specific cleanup where labels share words (for example "Banco" can

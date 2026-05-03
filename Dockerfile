@@ -16,6 +16,7 @@ RUN apt-get update \
 
 COPY pyproject.toml README.md LICENSE NOTICE ./
 COPY vepay_api_core.py vepay_api.py vepayocr.py vepayocr_api.py payment_receipt_schema.json ./
+COPY client ./client
 COPY examples ./examples
 
 RUN python -m pip install --no-cache-dir .

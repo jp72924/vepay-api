@@ -21,6 +21,7 @@ another system for transaction confirmation.
 - Partial extraction for receipt layouts that do not expose all confirmation
   fields.
 - FastAPI HTTP service with multipart and JSON/base64 inputs.
+- Optional same-origin audit UI served at `/ui`.
 - In-memory async jobs for larger batches.
 - Docker image recipe with Tesseract, Spanish and English OCR data.
 
@@ -227,6 +228,88 @@ For privacy, API responses replace local server paths with
 `upload://{request_id}/{filename}` and omit OCR `raw_text` unless
 `include_raw_text=true`.
 
+## Local Audit Client
+
+VEPay API includes a small local browser client for manually sending receipt
+images to the deployed API and reviewing the structured response.
+
+The same client can also be served by the API itself. It is disabled by default
+so API-only deployments keep the same public surface:
+
+```powershell
+$env:VEPAY_API_ENABLE_UI="true"
+python -m uvicorn vepay_api:app --host 127.0.0.1 --port 8080
+```
+
+Open:
+
+```text
+http://127.0.0.1:8080/ui
+```
+
+When served from `/ui`, the browser calls the same-origin `/v1/*` endpoints and
+does not need CORS or the local proxy. If `VEPAY_API_REQUIRE_API_KEY=true`, the
+UI shows a temporary `X-API-Key` field and does not persist it.
+
+For local audit sessions where the UI should be the first screen, also set
+`VEPAY_API_UI_DEFAULT_ROUTE=true`; then `GET /` redirects to `/ui/` while the
+API endpoints remain available.
+
+Start the local client:
+
+```powershell
+python scripts/start_client.py
+```
+
+Open:
+
+```text
+http://127.0.0.1:8765
+```
+
+The client proxies `/api/*` requests to `https://vepay-api.fly.dev/` by default,
+so the browser does not need CORS access to the Fly.io service. To point it at a
+local API instead:
+
+```powershell
+$env:VEPAY_API_BASE_URL="http://127.0.0.1:8080"
+python scripts/start_client.py
+```
+
+In the UI, select or drop receipt screenshots, process them, review the summary,
+receipt cards, per-file errors and full JSON, then download the response for
+manual audit.
+
+## Local OCR Regression Checklist
+
+Private receipt screenshots should stay outside the repository. When validating
+local parser changes with the current manual fixture set, run:
+
+```powershell
+$samples = @(
+  "C:\Users\Workstation\Desktop\RetailOps App\bancamiga.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\banesco.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\banesco-test.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\bdv.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\bdv-test.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\mercantil.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\provincial.jpeg",
+  "C:\Users\Workstation\Desktop\RetailOps App\provincial_alt.jpeg"
+)
+python vepay_api_core.py $samples --format json
+```
+
+Expected `payment.bank_app` values:
+
+- `bancamiga.jpeg`: `bancamiga`
+- `banesco.jpeg`: `banesco`
+- `banesco-test.jpeg`: `banesco`
+- `bdv.jpeg`: `bdv`
+- `bdv-test.jpeg`: `bdv`
+- `mercantil.jpeg`: `mercantil`
+- `provincial.jpeg`: `provincial`
+- `provincial_alt.jpeg`: `provincial`
+
 Optional environment variables:
 
 - `VEPAY_API_TESSERACT`: custom Tesseract executable path.
@@ -235,6 +318,8 @@ Optional environment variables:
 - `VEPAY_API_MAX_FILE_SIZE_BYTES`: per-image limit, default `10485760`.
 - `VEPAY_API_MAX_CONCURRENCY`: concurrent Tesseract runs, default `min(4, cpu_count)`.
 - `VEPAY_API_JOB_TTL_SECONDS`: in-memory job lifetime, default `86400`.
+- `VEPAY_API_ENABLE_UI`: set `true` to serve the audit UI at `/ui`.
+- `VEPAY_API_UI_DEFAULT_ROUTE`: set `true` with UI enabled to redirect `/` to `/ui/`.
 - `VEPAY_API_REQUIRE_API_KEY`: set `true` to require `X-API-Key`.
 - `VEPAY_API_KEY`: expected API key when auth is enabled.
 
@@ -243,6 +328,12 @@ Run with Docker:
 ```powershell
 docker build -t vepay-api .
 docker run --rm -p 8080:8080 vepay-api
+```
+
+Expose the integrated audit UI in Docker:
+
+```powershell
+docker run --rm -p 8080:8080 -e VEPAY_API_ENABLE_UI=true vepay-api
 ```
 
 Or with Compose:

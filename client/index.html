@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>VEPay API Audit Client</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">VEPay API</p>
+          <h1>Cliente de auditoria</h1>
+        </div>
+        <div class="service-status" id="serviceStatus">
+          <span class="status-dot status-dot--idle"></span>
+          <span id="serviceStatusText">Conectando</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <aside class="upload-panel" aria-label="Entrada">
+          <label class="drop-zone" id="dropZone">
+            <input id="fileInput" type="file" accept="image/*,.bmp,.jpeg,.jpg,.png,.tif,.tiff,.webp" multiple>
+            <span class="drop-icon">+</span>
+            <span class="drop-title">Seleccionar imagenes</span>
+            <span class="drop-meta" id="limitText">Cargando limites</span>
+          </label>
+
+          <div class="settings-grid">
+            <label class="field">
+              <span>Idioma OCR</span>
+              <input id="langInput" type="text" value="spa+eng" autocomplete="off">
+            </label>
+            <label class="field api-key-field hidden" id="apiKeyField">
+              <span>API key</span>
+              <input id="apiKeyInput" type="password" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="switch-row">
+              <input id="enableCropsInput" type="checkbox" checked>
+              <span>Usar crops auxiliares</span>
+            </label>
+            <label class="switch-row">
+              <input id="includeRawTextInput" type="checkbox">
+              <span>Incluir OCR raw</span>
+            </label>
+          </div>
+
+          <div class="selected-files">
+            <div class="section-heading">
+              <h2>Archivos</h2>
+              <button id="clearFilesButton" class="ghost-button" type="button" disabled>Limpiar</button>
+            </div>
+            <div id="fileList" class="file-list empty-state">Sin archivos seleccionados</div>
+          </div>
+
+          <button id="submitButton" class="primary-button" type="button" disabled>Procesar</button>
+          <p id="formMessage" class="form-message" role="status"></p>
+        </aside>
+
+        <section class="results-panel" aria-label="Resultados">
+          <div class="summary-strip" id="summaryStrip">
+            <div>
+              <span class="metric-label">Total</span>
+              <strong id="metricTotal">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Completos</span>
+              <strong id="metricComplete">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Incompletos</span>
+              <strong id="metricIncomplete">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Errores</span>
+              <strong id="metricErrors">0</strong>
+            </div>
+            <div>
+              <span class="metric-label">Tiempo</span>
+              <strong id="metricDuration">-</strong>
+            </div>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Vistas de resultado">
+            <button class="tab-button active" id="tabReceipts" type="button" data-tab="receipts">Recibos</button>
+            <button class="tab-button" id="tabErrors" type="button" data-tab="errors">Errores</button>
+            <button class="tab-button" id="tabJson" type="button" data-tab="json">JSON</button>
+          </div>
+
+          <section class="tab-panel active" id="panelReceipts" role="tabpanel" aria-labelledby="tabReceipts">
+            <div id="receiptsList" class="receipt-list empty-state">Sin resultados</div>
+          </section>
+
+          <section class="tab-panel" id="panelErrors" role="tabpanel" aria-labelledby="tabErrors">
+            <div id="errorsList" class="error-list empty-state">Sin errores</div>
+          </section>
+
+          <section class="tab-panel" id="panelJson" role="tabpanel" aria-labelledby="tabJson">
+            <div class="json-actions">
+              <button id="copyJsonButton" class="secondary-button" type="button" disabled>Copiar</button>
+              <button id="downloadJsonButton" class="secondary-button" type="button" disabled>Descargar JSON</button>
+            </div>
+            <pre id="jsonOutput" class="json-output">{}</pre>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="./config.js"></script>
+    <script src="./app.js" defer></script>
+  </body>
+</html>

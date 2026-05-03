@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import binascii
+import json
 import os
 import re
 import shutil
@@ -26,6 +27,7 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
+from starlette.responses import FileResponse, RedirectResponse, Response
 
 from vepay_api_core import (
     APP_NAME,
@@ -51,6 +53,8 @@ ALLOWED_CONTENT_TYPES = {
     "image/x-ms-bmp",
 }
 CHUNK_SIZE = 1024 * 1024
+ROOT_DIR = Path(__file__).resolve().parent
+CLIENT_DIR = ROOT_DIR / "client"
 
 
 def env_value(name: str, legacy_name: str | None = None) -> str | None:
@@ -599,8 +603,82 @@ async def run_job(job_id: str, body: JobCreateRequest) -> None:
     await update_job(job_id, status="succeeded", result=result)
 
 
-@app.get("/")
-async def root() -> dict[str, Any]:
+def is_ui_enabled() -> bool:
+    return bool_env("VEPAY_API_ENABLE_UI", False, legacy_name="VEPAYOCR_ENABLE_UI")
+
+
+def is_ui_default_route_enabled() -> bool:
+    return bool_env(
+        "VEPAY_API_UI_DEFAULT_ROUTE",
+        False,
+        legacy_name="VEPAYOCR_UI_DEFAULT_ROUTE",
+    )
+
+
+def ensure_ui_available() -> None:
+    if not is_ui_enabled():
+        raise HTTPException(status_code=404, detail="VEPay API UI is disabled.")
+    if not CLIENT_DIR.exists():
+        raise HTTPException(status_code=404, detail="VEPay API UI assets are unavailable.")
+
+
+def resolve_client_file(relative_path: str) -> Path:
+    ensure_ui_available()
+    cleaned = relative_path.replace("\\", "/").lstrip("/")
+    target = (CLIENT_DIR / cleaned).resolve()
+    client_root = CLIENT_DIR.resolve()
+    try:
+        target.relative_to(client_root)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="UI asset not found.") from exc
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="UI asset not found.")
+    return target
+
+
+def client_file_response(relative_path: str) -> FileResponse:
+    return FileResponse(
+        resolve_client_file(relative_path),
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/ui", include_in_schema=False)
+async def audit_client() -> RedirectResponse:
+    ensure_ui_available()
+    return RedirectResponse(url="/ui/", status_code=307)
+
+
+@app.get("/ui/", include_in_schema=False)
+async def audit_client_slash() -> FileResponse:
+    return client_file_response("index.html")
+
+
+@app.get("/ui/config.js", include_in_schema=False)
+async def audit_client_config() -> Response:
+    ensure_ui_available()
+    config = {
+        "apiPrefix": "",
+        "mode": "integrated",
+        "requireApiKey": REQUIRE_API_KEY,
+    }
+    return Response(
+        f"window.VEPAY_API_CLIENT_CONFIG = {json.dumps(config, sort_keys=True)};\n",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/ui/{asset_path:path}", include_in_schema=False)
+async def audit_client_asset(asset_path: str) -> FileResponse:
+    return client_file_response(asset_path)
+
+
+@app.get("/", response_model=None)
+async def root() -> dict[str, Any] | RedirectResponse:
+    if is_ui_default_route_enabled() and is_ui_enabled():
+        ensure_ui_available()
+        return RedirectResponse(url="/ui/", status_code=307)
     return {
         "app": APP_NAME,
         "version": APP_VERSION,
