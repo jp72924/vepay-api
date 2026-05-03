@@ -61,6 +61,20 @@ def test_healthz_degrades_without_tesseract(monkeypatch):
     assert response.json()["status"] == "degraded"
 
 
+def test_health_alias_degrades_without_tesseract(monkeypatch):
+    monkeypatch.setattr(
+        vepay_api,
+        "get_tesseract_path",
+        lambda: (_ for _ in ()).throw(RuntimeError("missing tesseract")),
+    )
+    client = TestClient(vepay_api.app)
+
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "degraded"
+
+
 def test_healthz_does_not_expose_internal_paths(monkeypatch):
     monkeypatch.setattr(
         vepay_api,
@@ -88,7 +102,9 @@ def test_root_uses_rebranded_identity():
     response = client.get("/")
 
     assert response.status_code == 200
-    assert response.json()["app"] == "VEPay API"
+    body = response.json()
+    assert body["app"] == "VEPay API"
+    assert body["health"] == "/health"
 
 
 def test_root_can_redirect_to_ui_when_enabled(monkeypatch):

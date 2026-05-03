@@ -683,7 +683,7 @@ async def root() -> dict[str, Any] | RedirectResponse:
         "app": APP_NAME,
         "version": APP_VERSION,
         "docs": "/docs",
-        "health": "/healthz",
+        "health": "/health",
         "capabilities": "/v1/capabilities",
         "parse_multipart": "/v1/receipts/parse",
         "parse_json": "/v1/receipts/parse-json",
@@ -691,6 +691,7 @@ async def root() -> dict[str, Any] | RedirectResponse:
     }
 
 
+@app.get("/health")
 @app.get("/healthz")
 async def healthz() -> dict[str, Any]:
     try:
