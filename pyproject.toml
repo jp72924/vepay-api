@@ -45,7 +45,7 @@ vepay-api = "vepay_api:main"
 vepay-api-cli = "vepay_api_core:main"
 
 [tool.setuptools]
-py-modules = ["vepay_api_core", "vepay_api", "vepayocr", "vepayocr_api"]
+py-modules = ["vepay_api_core", "vepay_api"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

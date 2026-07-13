@@ -6,10 +6,10 @@ from scripts import start_client
 def test_build_upstream_url_strips_api_prefix():
     url = start_client.build_upstream_url(
         "/api/v1/capabilities?x=1",
-        "https://vepay-api.fly.dev/",
+        "https://api.example.com/",
     )
 
-    assert url == "https://vepay-api.fly.dev/v1/capabilities?x=1"
+    assert url == "https://api.example.com/v1/capabilities?x=1"
 
 
 def test_build_upstream_url_can_target_local_api():

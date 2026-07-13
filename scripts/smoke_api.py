@@ -16,12 +16,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = ROOT / ".vepay-api-tmp"
 LOG_OUT = RUNTIME_DIR / "smoke-api.out.log"
 LOG_ERR = RUNTIME_DIR / "smoke-api.err.log"
-HOST = os.getenv("VEPAY_API_SMOKE_HOST", os.getenv("VEPAYOCR_SMOKE_HOST", "127.0.0.1"))
-PORT = int(os.getenv("VEPAY_API_SMOKE_PORT", os.getenv("VEPAYOCR_SMOKE_PORT", "8080")))
+HOST = os.getenv("VEPAY_API_SMOKE_HOST", "127.0.0.1")
+PORT = int(os.getenv("VEPAY_API_SMOKE_PORT", "8080"))
 BASE_URL = f"http://{HOST}:{PORT}"
-TIMEOUT_SECONDS = int(
-    os.getenv("VEPAY_API_SMOKE_TIMEOUT", os.getenv("VEPAYOCR_SMOKE_TIMEOUT", "20"))
-)
+TIMEOUT_SECONDS = int(os.getenv("VEPAY_API_SMOKE_TIMEOUT", "20"))
 
 
 def get_json(path: str) -> tuple[int, dict]:

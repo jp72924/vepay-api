@@ -12,8 +12,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_DIR = ROOT / ".vepay-api-tmp"
 PID_FILE = RUNTIME_DIR / "uvicorn.pid"
-HOST = os.getenv("VEPAY_API_HOST", os.getenv("VEPAYOCR_HOST", "127.0.0.1"))
-PORT = int(os.getenv("VEPAY_API_PORT", os.getenv("VEPAYOCR_PORT", "8080")))
+HOST = os.getenv("VEPAY_API_HOST", "127.0.0.1")
+PORT = int(os.getenv("VEPAY_API_PORT", "8080"))
 
 
 def is_pid_running(pid: int) -> bool:

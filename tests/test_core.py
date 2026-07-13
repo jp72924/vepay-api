@@ -184,7 +184,7 @@ V-12.345.678
         vepay_api_core.ReceiptOptions(tesseract_path="tesseract", include_raw_text=False),
     )
 
-    schema = json.loads(Path("payment_receipt_schema.json").read_text(encoding="utf-8"))
+    schema = json.loads(Path("schemas/payment_receipt_schema.json").read_text(encoding="utf-8"))
     jsonschema.validate(receipt, schema)
     assert receipt["payment"]["bank_app"] == "bdv"
     assert receipt["payment"]["amount"]["value"] == "2500.00"

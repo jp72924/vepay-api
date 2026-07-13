@@ -57,64 +57,31 @@ ROOT_DIR = Path(__file__).resolve().parent
 CLIENT_DIR = ROOT_DIR / "client"
 
 
-def env_value(name: str, legacy_name: str | None = None) -> str | None:
-    value = os.getenv(name)
-    if value is not None:
-        return value
-    return os.getenv(legacy_name) if legacy_name else None
+def env_value(name: str) -> str | None:
+    return os.getenv(name)
 
 
-def int_env(
-    name: str,
-    default: int,
-    *,
-    minimum: int = 1,
-    legacy_name: str | None = None,
-) -> int:
+def int_env(name: str, default: int, *, minimum: int = 1) -> int:
     try:
-        return max(minimum, int(env_value(name, legacy_name) or str(default)))
+        return max(minimum, int(env_value(name) or str(default)))
     except ValueError:
         return default
 
 
-def bool_env(
-    name: str,
-    default: bool = False,
-    *,
-    legacy_name: str | None = None,
-) -> bool:
-    raw = env_value(name, legacy_name)
+def bool_env(name: str, default: bool = False) -> bool:
+    raw = env_value(name)
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-MAX_FILES = int_env("VEPAY_API_MAX_FILES", 10, legacy_name="VEPAYOCR_MAX_FILES")
-MAX_JOB_FILES = int_env(
-    "VEPAY_API_MAX_JOB_FILES",
-    100,
-    legacy_name="VEPAYOCR_MAX_JOB_FILES",
-)
-MAX_FILE_SIZE_BYTES = int_env(
-    "VEPAY_API_MAX_FILE_SIZE_BYTES",
-    10 * 1024 * 1024,
-    legacy_name="VEPAYOCR_MAX_FILE_SIZE_BYTES",
-)
-MAX_CONCURRENCY = int_env(
-    "VEPAY_API_MAX_CONCURRENCY",
-    min(4, os.cpu_count() or 1),
-    legacy_name="VEPAYOCR_MAX_CONCURRENCY",
-)
-JOB_TTL_SECONDS = int_env(
-    "VEPAY_API_JOB_TTL_SECONDS",
-    24 * 60 * 60,
-    legacy_name="VEPAYOCR_JOB_TTL_SECONDS",
-)
-REQUIRE_API_KEY = bool_env(
-    "VEPAY_API_REQUIRE_API_KEY",
-    legacy_name="VEPAYOCR_REQUIRE_API_KEY",
-)
-API_KEY = env_value("VEPAY_API_KEY", "VEPAYOCR_API_KEY")
+MAX_FILES = int_env("VEPAY_API_MAX_FILES", 10)
+MAX_JOB_FILES = int_env("VEPAY_API_MAX_JOB_FILES", 100)
+MAX_FILE_SIZE_BYTES = int_env("VEPAY_API_MAX_FILE_SIZE_BYTES", 10 * 1024 * 1024)
+MAX_CONCURRENCY = int_env("VEPAY_API_MAX_CONCURRENCY", min(4, os.cpu_count() or 1))
+JOB_TTL_SECONDS = int_env("VEPAY_API_JOB_TTL_SECONDS", 24 * 60 * 60)
+REQUIRE_API_KEY = bool_env("VEPAY_API_REQUIRE_API_KEY")
+API_KEY = env_value("VEPAY_API_KEY")
 
 OCR_LIMITER = threading.BoundedSemaphore(MAX_CONCURRENCY)
 
@@ -255,11 +222,11 @@ def validate_image_metadata(filename: str, content_type: str | None) -> str | No
 
 
 def get_tesseract_path() -> str:
-    return find_tesseract(env_value("VEPAY_API_TESSERACT", "VEPAYOCR_TESSERACT"))
+    return find_tesseract(env_value("VEPAY_API_TESSERACT"))
 
 
 def get_temp_parent() -> str | None:
-    temp_dir = env_value("VEPAY_API_TEMP_DIR", "VEPAYOCR_TEMP_DIR")
+    temp_dir = env_value("VEPAY_API_TEMP_DIR")
     if not temp_dir:
         return None
     path = Path(temp_dir)
@@ -604,15 +571,11 @@ async def run_job(job_id: str, body: JobCreateRequest) -> None:
 
 
 def is_ui_enabled() -> bool:
-    return bool_env("VEPAY_API_ENABLE_UI", False, legacy_name="VEPAYOCR_ENABLE_UI")
+    return bool_env("VEPAY_API_ENABLE_UI", False)
 
 
 def is_ui_default_route_enabled() -> bool:
-    return bool_env(
-        "VEPAY_API_UI_DEFAULT_ROUTE",
-        False,
-        legacy_name="VEPAYOCR_UI_DEFAULT_ROUTE",
-    )
+    return bool_env("VEPAY_API_UI_DEFAULT_ROUTE", False)
 
 
 def ensure_ui_available() -> None:
@@ -684,6 +647,7 @@ async def root() -> dict[str, Any] | RedirectResponse:
         "version": APP_VERSION,
         "docs": "/docs",
         "health": "/health",
+        "healthz": "/healthz",
         "capabilities": "/v1/capabilities",
         "parse_multipart": "/v1/receipts/parse",
         "parse_json": "/v1/receipts/parse-json",
@@ -858,8 +822,8 @@ def main() -> None:
 
     uvicorn.run(
         "vepay_api:app",
-        host=env_value("VEPAY_API_HOST", "VEPAYOCR_HOST") or "0.0.0.0",
-        port=int_env("VEPAY_API_PORT", 8080, legacy_name="VEPAYOCR_PORT"),
+        host=env_value("VEPAY_API_HOST") or "0.0.0.0",
+        port=int_env("VEPAY_API_PORT", 8080),
     )
 
 

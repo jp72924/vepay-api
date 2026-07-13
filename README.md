@@ -41,7 +41,7 @@ without changing the API-first default behavior.
   `VEPAY_API_ENABLE_UI=true`, with optional `/` to `/ui/` redirection via
   `VEPAY_API_UI_DEFAULT_ROUTE=true`.
 - Local proxy client: `scripts/start_client.py` still serves the same UI on
-  `127.0.0.1:8765` and proxies `/api/*` to Fly.io or a custom
+  `127.0.0.1:8765` and proxies `/api/*` to a configurable upstream API via
   `VEPAY_API_BASE_URL` for CORS-free manual audits.
 - Deployment and validation: Docker now includes the `client/` assets, Compose
   keeps the UI disabled by default, and tests cover contextual bank detection,
@@ -159,6 +159,9 @@ curl http://localhost:8080/
 curl http://localhost:8080/health
 curl http://localhost:8080/v1/capabilities
 ```
+
+`/healthz` is also available and returns the identical response as `/health` — a
+Kubernetes-style alias for tooling that defaults to that convention.
 
 For a browser UI, open `http://localhost:8080/docs`.
 
@@ -290,9 +293,8 @@ Open:
 http://127.0.0.1:8765
 ```
 
-The client proxies `/api/*` requests to `https://vepay-api.fly.dev/` by default,
-so the browser does not need CORS access to the Fly.io service. To point it at a
-local API instead:
+The client proxies `/api/*` requests to `http://127.0.0.1:8080/` by default. To
+point it at a different API instance instead:
 
 ```powershell
 $env:VEPAY_API_BASE_URL="http://127.0.0.1:8080"
@@ -365,21 +367,9 @@ Or with Compose:
 docker compose up --build
 ```
 
-## Google Cloud Run
-
-Cloud Run can deploy this repository directly from source. Because the repo
-contains a Dockerfile, Google Cloud builds the same image used locally, including
-Tesseract and the Spanish/English OCR data.
-
-The deployment helpers live in `deploy/google-cloud-run.md` and
-`scripts/deploy_cloud_run.*`. The default production shape is Cloud Run in
-`northamerica-south1`, 1 vCPU, 1 GiB RAM, scale-to-zero, and app-level
-`X-API-Key` authentication backed by Secret Manager. The integrated audit UI is
-enabled at `/ui` without changing the API metadata returned from `/`.
-
 ## Output Model
 
-The JSON output follows `payment_receipt_schema.json`.
+The JSON output follows `schemas/payment_receipt_schema.json`.
 
 - `schema_version`: currently `vepay_api_receipt_v1`.
 - `source`: file name, path and SHA-256 hash of the processed image.

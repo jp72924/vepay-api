@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIENT_DIR = ROOT / "client"
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-DEFAULT_API_BASE_URL = "https://vepay-api.fly.dev/"
+DEFAULT_API_BASE_URL = "http://127.0.0.1:8080/"
 HOP_BY_HOP_HEADERS = {
     "connection",
     "keep-alive",

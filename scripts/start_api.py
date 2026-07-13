@@ -18,12 +18,10 @@ RUNTIME_DIR = ROOT / ".vepay-api-tmp"
 PID_FILE = RUNTIME_DIR / "uvicorn.pid"
 LOG_OUT = RUNTIME_DIR / "uvicorn.out.log"
 LOG_ERR = RUNTIME_DIR / "uvicorn.err.log"
-HOST = os.getenv("VEPAY_API_HOST", os.getenv("VEPAYOCR_HOST", "127.0.0.1"))
-PORT = int(os.getenv("VEPAY_API_PORT", os.getenv("VEPAYOCR_PORT", "8080")))
+HOST = os.getenv("VEPAY_API_HOST", "127.0.0.1")
+PORT = int(os.getenv("VEPAY_API_PORT", "8080"))
 BASE_URL = f"http://{HOST}:{PORT}"
-TIMEOUT_SECONDS = int(
-    os.getenv("VEPAY_API_START_TIMEOUT", os.getenv("VEPAYOCR_START_TIMEOUT", "20"))
-)
+TIMEOUT_SECONDS = int(os.getenv("VEPAY_API_START_TIMEOUT", "20"))
 
 
 def is_pid_running(pid: int) -> bool:

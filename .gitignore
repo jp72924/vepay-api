@@ -4,7 +4,6 @@ __pycache__/
 .pytest_cache/
 .test-tmp/
 .vepay-api-tmp/
-.vepayocr-tmp/
 *.egg-info/
 pytest-cache-files-*/
 .mypy_cache/
@@ -35,7 +34,8 @@ private/
 *.jsonl
 
 # Keep public schema and redacted example tracked.
-!payment_receipt_schema.json
+!schemas/
+!schemas/payment_receipt_schema.json
 !examples/
 !examples/redacted_receipt.json
 
@@ -44,4 +44,5 @@ private/
 Thumbs.db
 .idea/
 .vscode/
-
+.claude/
+CLAUDE.md
