@@ -37,6 +37,10 @@ without changing the API-first default behavior.
 - Amount extraction: BDV amount crops are triggered from strong BDV receipt
   signals, and amounts with comma or dot decimals followed by `Bs` are
   normalized to the same JSON shape.
+- Mercantil Tpago recovery: when a Mercantil receipt (or one Tesseract
+  couldn't confidently classify) comes back missing required fields, a
+  full-page thresholded re-OCR pass recovers the label/value lines its
+  gradient banner otherwise causes Tesseract to drop.
 - Integrated audit UI: the static client can be served from `/ui` when
   `VEPAY_API_ENABLE_UI=true`, with optional `/` to `/ui/` redirection via
   `VEPAY_API_UI_DEFAULT_ROUTE=true`.
@@ -55,8 +59,11 @@ without changing the API-first default behavior.
 - Tesseract language data for `spa` and `eng`.
 
 VEPay API uses Pillow for a targeted BDV crop because that app often renders
-the amount as white text on a grey bar. On Windows, the legacy PowerShell/.NET
-crop remains available as a fallback.
+the amount as white text on a grey bar, and for a full-page thresholding pass
+on Mercantil Tpago receipts, whose gradient banner and curved white-card
+cutout can otherwise confuse Tesseract's default thresholding badly enough to
+drop most of the card's fields. On Windows, the legacy PowerShell/.NET crop
+remains available as a fallback for both passes.
 
 ## Installation
 

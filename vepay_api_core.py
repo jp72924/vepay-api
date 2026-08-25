@@ -659,6 +659,25 @@ def pillow_threshold_crop(
     return output_path.exists()
 
 
+def mercantil_recovery_needed(current_text: str) -> bool:
+    """Whether the required fields are still missing after the primary pass.
+
+    Mercantil's Tpago success screen has a gradient banner with a curved
+    white-card cutout underneath it. That gradient/curve combination
+    confuses Tesseract's default Otsu thresholding, which can drop entire
+    label/value lines on the card (not just the banner) from the primary
+    OCR pass, well beyond just the amount field BDV struggles with.
+    """
+
+    lines = clean_lines(current_text)
+    reference = extract_reference(value_after_label(lines, LABEL_ALIASES["reference"]))
+    _, amount_value = extract_amount(lines, current_text)
+    date_time = parse_date_time(value_after_label(lines, LABEL_ALIASES["date"]))
+    concept = normalize_concept(value_after_label(lines, LABEL_ALIASES["concept"]))
+    recipient_bank = normalize_bank(value_after_label(lines, LABEL_ALIASES["recipient_bank"]))
+    return not all([reference, amount_value, date_time["raw"], concept, recipient_bank])
+
+
 def targeted_ocr_passes(
     image_path: Path,
     tesseract_path: str,
@@ -669,46 +688,102 @@ def targeted_ocr_passes(
     enable_crops: bool = True,
 ) -> list[dict[str, str]]:
     passes: list[dict[str, str]] = []
+    if not enable_crops:
+        return passes
 
     amount_raw, amount_value = extract_amount(clean_lines(current_text), current_text)
     should_try_bdv_amount = (
         bank_app == "bdv" or has_bdv_receipt_signal(current_text)
     ) and not amount_value
-    if not should_try_bdv_amount or not enable_crops:
-        return passes
 
-    temp_file = tempfile.NamedTemporaryFile(
-        prefix="receipt_ocr_bdv_",
-        suffix=".png",
-        delete=False,
-    )
-    crop_path = Path(temp_file.name)
-    temp_file.close()
-    try:
-        # BDV places the amount in a centered grey bar near the top-middle.
-        # Percentages make the crop work across screenshots with the same UI.
-        crop_options = {
-            "rect_pct": (0.055, 0.286, 0.89, 0.08),
-            "threshold": 170,
-            "scale": 3,
-        }
-        created = pillow_threshold_crop(
-            image_path,
-            crop_path,
-            **crop_options,
-        ) or windows_threshold_crop(image_path, crop_path, **crop_options)
-        if created:
-            try:
-                crop_text = run_tesseract(crop_path, tesseract_path, lang=lang, psm=7)
-            except RuntimeError:
-                crop_text = ""
-            if crop_text.strip():
-                passes.append({"name": "bdv_amount_crop", "text": crop_text.strip()})
-    finally:
+    if should_try_bdv_amount:
+        temp_file = tempfile.NamedTemporaryFile(
+            prefix="receipt_ocr_bdv_",
+            suffix=".png",
+            delete=False,
+        )
+        crop_path = Path(temp_file.name)
+        temp_file.close()
         try:
-            crop_path.unlink(missing_ok=True)
-        except OSError:
-            pass
+            # BDV places the amount in a centered grey bar near the top-middle.
+            # Percentages make the crop work across screenshots with the same UI.
+            crop_options = {
+                "rect_pct": (0.055, 0.286, 0.89, 0.08),
+                "threshold": 170,
+                "scale": 3,
+            }
+            created = pillow_threshold_crop(
+                image_path,
+                crop_path,
+                **crop_options,
+            ) or windows_threshold_crop(image_path, crop_path, **crop_options)
+            if created:
+                try:
+                    crop_text = run_tesseract(crop_path, tesseract_path, lang=lang, psm=7)
+                except RuntimeError:
+                    crop_text = ""
+                if crop_text.strip():
+                    passes.append({"name": "bdv_amount_crop", "text": crop_text.strip()})
+        finally:
+            try:
+                crop_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    # When Tesseract drops most label lines from a Mercantil receipt, it can
+    # also take the "tpago"/"mercantil" tokens with it, so bank detection
+    # falls through to the loose "banco de venezuela" substring match meant
+    # for the *destination* bank and misreports "bdv" instead of "mercantil".
+    # That fallback match only fires when the real BDV app signal
+    # (has_bdv_receipt_signal) is absent, so treat that specific case as
+    # ambiguous rather than a confident BDV detection.
+    bank_is_ambiguous = bank_app is None or (
+        bank_app == "bdv" and not has_bdv_receipt_signal(current_text)
+    )
+    should_try_mercantil_recovery = (
+        bank_app == "mercantil"
+        or has_any_token(current_text, MERCANTIL_RECEIPT_TOKENS)
+        or bank_is_ambiguous
+    ) and mercantil_recovery_needed(current_text)
+
+    if should_try_mercantil_recovery:
+        temp_file = tempfile.NamedTemporaryFile(
+            prefix="receipt_ocr_mercantil_",
+            suffix=".png",
+            delete=False,
+        )
+        crop_path = Path(temp_file.name)
+        temp_file.close()
+        try:
+            # Unlike BDV's single narrow field, the Mercantil miss can span
+            # most of the card, so threshold the whole page instead of a
+            # small crop. Scale is left at 1: the fix is binarizing away the
+            # gradient, not upscaling, and it keeps the Windows PowerShell/
+            # .NET per-pixel fallback fast on a full-size screenshot.
+            crop_options = {
+                "rect_pct": (0.0, 0.0, 1.0, 1.0),
+                "threshold": 170,
+                "scale": 1,
+            }
+            created = pillow_threshold_crop(
+                image_path,
+                crop_path,
+                **crop_options,
+            ) or windows_threshold_crop(image_path, crop_path, **crop_options)
+            if created:
+                try:
+                    crop_text = run_tesseract(crop_path, tesseract_path, lang=lang, psm=6)
+                except RuntimeError:
+                    crop_text = ""
+                if crop_text.strip():
+                    passes.append(
+                        {"name": "mercantil_threshold_pass", "text": crop_text.strip()}
+                    )
+        finally:
+            try:
+                crop_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     return passes
 
